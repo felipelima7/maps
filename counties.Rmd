@@ -1,0 +1,56 @@
+---
+title: "Whowon"
+output: html_document
+---
+
+Click in the map below to see who won in each county in the 2016 elections.
+
+```{r map, warning=F, message=F, error=F, echo=FALSE, include=FALSE}
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(leaflet)
+library(tigris)
+
+setwd("C:/Users/Felipe/Downloads/Curso/Data Visualization/Modulo 3")
+
+us_elections <- read_csv("CountyDataMOD4.csv")
+
+us_elections$FIPS <- sprintf("%05d",us_elections$FIPS)
+
+options(tigris_class = "sf")
+
+us_shapefiles <- counties(state = NULL, cb = T)
+
+us_shapefiles <- us_shapefiles %>%
+  mutate(FIPS=paste0(STATEFP, COUNTYFP))
+
+us_merged <- geo_join(us_shapefiles, us_elections, "FIPS", "FIPS")
+
+uspal <- colorBin(c("deepskyblue3", "white", "red"), us_merged$DemOrRepPerc, 7, pretty = T)
+
+us_popup <- paste0("<strong>", us_merged$NAME, " County, ", as.character(us_merged$State), "</strong><br />",
+                    case_when(us_merged$DemocratOrRepublican == "0" ~ paste0("Won by Trump: ", us_merged$PerRepROUND, "%"),
+                              us_merged$DemocratOrRepublican == "1" ~ paste0("Won by Hillary: ", us_merged$PerDemROUND, "%")))
+```
+
+```{r map2, warning=F, message=F, error=F, echo=FALSE}
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  setView(-98.483330, 38.712046, zoom = 4) %>%
+  addPolygons(data = us_merged ,
+              fillColor = ~uspal(us_merged$DemOrRepPerc),
+              fillOpacity = 0.9,
+              color = "white",
+              weight = 0.7,
+              smoothFactor = 0.1,
+              popup = ~us_popup) %>%
+  addLegend(colors = c("deepskyblue", "red"),
+            labels = c("Hillary", "Trump"),
+            position = "bottomright",
+            title = paste0("Who won where <br> in 2016 elections?"))
+
+
+```
+
